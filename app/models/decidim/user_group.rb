@@ -16,9 +16,7 @@ module Decidim
     validate :correct_state
     validate :unique_document_number
 
-    geocoded_by :address
-
-    after_validation :geocode
+    after_validation :geocode!
 
     scope :verified, -> { where.not("extended_data->>'verified_at' IS ?", nil) }
     scope :rejected, -> { where.not("extended_data->>'rejected_at' IS ?", nil) }
@@ -105,6 +103,20 @@ module Decidim
     end
 
     private
+
+    # To automatically geocode objects with Geocoder
+    # they have to have two attributes/columns (float or decimal)
+    # called latitude and longitude (that we don't have)
+    # Here we search for the address without using ActiveRecord
+    def geocode!
+      result = Geocoder.search(address).first
+      return unless result
+
+      coordinates = result.data['Location']['DisplayPosition']
+      extended_data['latitude'] = coordinates["Latitude"]
+      extended_data['longitude'] =  coordinates["Longitude"]
+      save!
+    end
 
     # Private: Checks if the state user group is correct.
     def correct_state
